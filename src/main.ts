@@ -2,8 +2,9 @@
 const CANVAS_WIDTH: number = 600;
 const CANVAS_HEIGHT: number = 600;
 
-// buttons
+// ui stuff
 let phaseSlider: p5.Element;
+let pauseButton: p5.Element;
 
 // buffer to draw the mask onto
 let maskBuffer: p5.Graphics;
@@ -15,6 +16,10 @@ let moonImage: p5.Image;
  * Whether everything has finished loading - if this is false, lots of things will be undefined!
  */
 let asyncLoadingComplete = false;
+
+let paused = false;
+let usingSlider = false;
+let currentPhase: number = 0;
 
 /**
  * Draws the moon.
@@ -74,14 +79,32 @@ function drawMoon(phase: number): void {
     image(maskBuffer, 0, 0);
 }
 
-// for disabling and reenabling keyboard input
-let canvasHovered = true;
-
 function setup() {
     const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
 
+
+
     phaseSlider = createSlider(0, 32, 16, 0.1)
-                 .parent("buttonContainer");
+                 .id("phaseSlider")
+                 .parent("buttonContainer")
+                 .style("margin-top", 10)
+                 .mousePressed(() => {
+                    paused = true;
+                    usingSlider = true;
+                    pauseButton.html("Unpause");
+                  });
+
+    pauseButton = createButton("pause")
+                 .parent("buttonContainer")
+                 .size(100, 30)
+                 .style("text-align", "center")
+                 .style("font-size", "20px")
+                 .html("Pause")
+                 .mouseClicked(() => {
+                    paused = !paused;
+                    pauseButton.html(paused ? "Unpause" : "Pause");
+                    if (!paused) { usingSlider = false; }
+                  });
 
     maskBuffer = createGraphics(CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -89,19 +112,6 @@ function setup() {
     moonImage = loadImage("../assets/FullMoon2010.jpg",
         () => { asyncLoadingComplete = true; }
     );
-
-    // WHY DO THESE USE CALLBACKS????
-    canvas.mouseOver(() => {
-        canvasHovered = true;
-    });
-    canvas.mouseOut(() => {
-        canvasHovered = false;
-    });
-
-    // this is the only way to make mouse functions only trigger when the mouse is actually over the
-    // canvas. I SHOULD NOT HAVE TO DO THIS.
-    canvas.mousePressed(_mousePressed);
-    canvas.mouseReleased(_mouseReleased);
 
     // this is, as far as i'm aware, the only way to disable the right-click menu without also
     // disabling it for the entire webpage. I SHOULD NOT HAVE TO DO THIS EITHER.
@@ -124,45 +134,22 @@ function draw() {
         return;
     }
 
+    // native delta time is in milliseconds
+    if (!paused) {
+        currentPhase += 6 * deltaTime / 1000;
+        if (currentPhase >= 32) { currentPhase = 0; }
+    }
+    else if (usingSlider) {
+        currentPhase = phaseSlider.value() as number; // keeps typescript happy
+    }
+
     background("#000000");
 
-    // mildly cursed hack to keep typescript happy
-    const value = phaseSlider.value();
-    drawMoon(typeof value === "string" ? Number.parseInt(value) : value);
+    drawMoon(currentPhase);
 
     textSize(24);
     textAlign("left", "top")
     noStroke();
     fill("#00ff00");
-    text(phaseSlider.value(), 5, 10);
-}
-
-function _mousePressed() {
-
-}
-
-function _mouseReleased() {
-    // console.log(`pressed ${mouseButton}`);
-}
-
-function keyPressed(event: KeyboardEvent) {
-    // only run when the mouse is over the canvas; also makes F12 open the debug console instead of
-    // interacting with the sketch
-    if (canvasHovered && event.key !== "F12") {
-        // console.log(`pressed ${event.key}`);
-
-        // prevents default browser behavior
-        return false;
-    }
-}
-
-function keyReleased(event: KeyboardEvent) {
-    // only run when the mouse is over the canvas; also makes F12 open the debug console instead of
-    // interacting with the sketch
-    if (canvasHovered && event.key !== "F12") {
-        // console.log(`released ${event.key}`);
-
-        // prevents default browser behavior
-        return false;
-    }
+    text(currentPhase.toFixed(1), 5, 10);
 }
